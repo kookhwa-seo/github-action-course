@@ -1,30 +1,41 @@
 name: PART6 - CH1 - DockerHub build
-on: workflow_dispatch
+
+on: workflow_dispatch # 수동으로 워크플로우를 실행할 때 사용
+
 jobs:
   build:
     name: Humancat Server Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Docker 빌드는 리눅스 러너에서 효율적이며,
+                          # 빌드되는 이미지는 macOS에서도 실행 가능하도록 설정할 것입니다.
     steps:
-      - uses: actions/checkout@v3
-      - name: Move Python Sample code
+      - name: Checkout repository # GitHub 저장소의 코드를 러너로 가져옵니다.
+        uses: actions/checkout@v4 # 최신 버전 (v3 -> v4) 사용 권장
+
+      - name: Move Python Sample code # 특정 경로의 코드를 현재 디렉토리로 이동 (기존 로직 유지)
         run: |
           mv build_sample/container_build/* ./
-      - name: "Set up Python"
+
+      - name: Set up Python # Python 환경 설정 (기존 로직 유지)
         uses: actions/setup-python@v4
         with:
           python-version: "3.8"
-      - name: DockerHub Login
-        uses: docker/login-action@v1
+
+      # --- 새로 추가되는 부분: Docker Buildx 설정 ---
+      - name: Set up Docker Buildx # Docker Buildx를 설정하여 멀티-아키텍처 빌드를 가능하게 합니다.
+        uses: docker/setup-buildx-action@v3 # 최신 버전 (v2 -> v3) 사용 권장
+
+      - name: DockerHub Login # Docker Hub에 로그인합니다.
+        uses: docker/login-action@v3 # 최신 버전 (v1 -> v3) 사용 권장
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Container Build and Push to DockerHub
-        uses: docker/build-push-action@v2
+
+      - name: Container Build and Push to DockerHub # Docker 이미지를 빌드하고 Docker Hub로 푸시합니다.
+        uses: docker/build-push-action@v5 # 최신 버전 (v2 -> v5) 사용 권장
         with:
-          context: ./
-          file: ./Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/humancat
-
-
-      
+          context: ./ # Dockerfile이 있는 빌드 컨텍스트 (현재 디렉토리)
+          file: ./Dockerfile # 사용할 Dockerfile의 경로
+          push: true # 빌드된 이미지를 Docker Hub로 푸시합니다.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/humancat # 이미지 태그 (예: your_dockerhub_id/humancat:latest)
+          # --- 이 부분이 핵심입니다: 빌드할 대상 플랫폼(아키텍처)을 지정합니다. ---
+          platforms: linux/amd64,linux/arm64 # Intel/AMD CPU (x86-64) 및 ARM 기반 CPU (Apple Silicon M1/M2/M3) 모두 지원
